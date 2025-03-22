@@ -4,6 +4,7 @@
 import json
 import subprocess
 import time
+from enum import Enum, auto
 
 import board
 import digitalio
@@ -91,18 +92,15 @@ def get_stats():
         for k, v in cmd.items()
     }
 
-    # Update fields with extra info
+    # Add labels to some fields
     stats["IP"] = f'IP: {stats.get("IP").strip()}'
     stats["HOST"] = f'HOST: {stats.get("HOST").strip()}'
-    # stats["Temp"] = f'CPU Temp: {float(stats.get("Temp")):.1f} C' # Display Celcius
-    stats["Temp"] = (
-        f'CPU Temp: {c_to_f(float(stats.get("Temp"))):.1f} F'  # Display Fahrenheit
-    )
 
-    # _ = [print(s) for s in stats.values()]
-    # print()
+    # Convert the temperature to Fahrenheit
+    stats["Temp"] = f'CPU Temp: {c_to_f(float(stats.get("Temp"))):.1f} F'
 
     return stats
+
 
 def get_pihole_stats(client):
     # # Pi Hole API data!
@@ -136,6 +134,8 @@ def update_frame_text(draw, font, stats, x, top):
     # draw.text((x, y), IP, font=font, fill="#FFFFFF")
     draw.text((x, y), stats.get("IP"), font=font, fill="#FFFFFF")
     y += y_offset
+    draw.text((x, y), stats.get("HOST"), font=font, fill="#FFFFFF")
+    y += y_offset
     draw.text((x, y), stats.get("CPU"), font=font, fill="#FFFF00")
     y += y_offset
     draw.text((x, y), stats.get("MemUsage"), font=font, fill="#00FF00")
@@ -153,6 +153,26 @@ def initialize_image(disp):
     image = Image.new("RGB", (width, height))
 
     return image
+
+
+class ButtonState(Enum):
+    ONLY_A = auto()
+    ONLY_B = auto()
+    BOTH = auto()
+    NONE = auto()
+
+
+def get_button_states(buttonA, buttonB):
+    # Return the state of the button presses:
+    #
+    if buttonA.value and not buttonB.value:  # just button A pressed
+        return ButtonState.ONLY_A
+    if buttonB.value and not buttonA.value:  # just button B pressed
+        return ButtonState.ONLY_B
+    if buttonA.value or buttonB.value:  # no buttons pressed
+        return ButtonState.NONE
+    if not buttonA.value and not buttonB.value:
+        return ButtonState.BOTH
 
 
 def main():
@@ -194,17 +214,19 @@ def main():
 
     try:
         while True:
-            if buttonA.value and not buttonB.value:  # just button A pressed
+            state = get_button_states(buttonA, buttonB)
+            if state == ButtonState.ONLY_A:
                 print("Button A pressed")
 
-            if buttonB.value and not buttonA.value:  # just button B pressed
+            if state == ButtonState.ONLY_B:
                 print("Button B pressed")
 
-            if buttonA.value or buttonB.value:
-                backlight.value = False  # turn off backlight
-            else:
-                print("Buttons A & B pressed")
+            if state == ButtonState.BOTH:
+                print("Buttons A and B pressed")
                 backlight.value = True  # turn on backlight
+
+            if state == ButtonState.NONE:
+                backlight.value = False  # turn off backlight
 
             # Draw a black filled box to clear the image.
             draw.rectangle((0, 0, disp.width, disp.height), outline=0, fill=0)
