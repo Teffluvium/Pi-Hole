@@ -2,11 +2,16 @@
 Support scripts and configurations for Pi-Hole
 
 
-## Updating the Python Environment
+## Updating the OS
 
 ```
 sudo apt-get update
 sudo apt-get -y upgrade
+
+```
+
+## Update the Python Environment
+```
 sudo apt-get install python3-pip
 sudo apt install --upgrade python3-setuptools python3-venv
 
