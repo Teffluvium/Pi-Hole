@@ -1,0 +1,13 @@
+# Standard packages
+numpy
+Pillow
+requests
+
+# Custom and/or proprietary
+adafruit-circuitpython-rgb-display
+pihole6api
+
+# Formatting and linting tools
+black
+flake8
+isort
