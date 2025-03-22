@@ -38,7 +38,7 @@ sudo touch /etc/unbound/unbound.conf.d/pi-hole.conf
 ```
 
 Update the contents of the file with the following:
-```
+```ini
 server:
     # If no logfile is specified, syslog is used
     # logfile: "/var/log/unbound/unbound.log"
@@ -133,7 +133,8 @@ The first command should return a status of `SERVFAIL` and no IP address.  The s
 ### Configure Pi-Hole
 Finally, configure Pi-hole to use your recursive DNS server by specifying `127.0.0.1#5335` in the `Settings > DNS > Custom DNS` servers section and ensuring that all the other upstream servers are unticked, as shown below:
 
-!!! Add image here !!!
+![Screenshot 2025-03-22 at 11 14 24 AM](https://github.com/user-attachments/assets/d364aea4-2548-4f0f-980c-c68bc5327b63)
+
 
 NOTE: Don't forget to click on the `Save & Apply` button to store the new configuration.
 
@@ -166,7 +167,7 @@ sudo service unbound restart
 ### Add Logging to `unbound`
 
 First, specify the log file, human-readable timestamps and the verbosity level in the server part of `/etc/unbound/unbound.conf.d/pi-hole.conf`:
-```
+```ini
 server:
     # If no logfile is specified, syslog is used
     logfile: "/var/log/unbound/unbound.log"
