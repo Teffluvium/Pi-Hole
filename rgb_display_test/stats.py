@@ -23,14 +23,22 @@ RESET_PIN = None
 # Config for display baudrate (default max is 24mhz):
 BAUDRATE = 64_000_000
 
-# Display geometry
-DISPLAY_WIDTH = 135
+# # Display geometry for 135x240 display
+# DISPLAY_WIDTH = 135
+# DISPLAY_HEIGHT = 240
+# DISPLAY_X_OFFSET = 53
+# DISPLAY_Y_OFFSET = 40
+# ROTATION = 270  # 90
+
+# Display geometry for 240x240 display
+DISPLAY_WIDTH = 240
 DISPLAY_HEIGHT = 240
-DISPLAY_X_OFFSET = 53
-DISPLAY_Y_OFFSET = 40
+DISPLAY_X_OFFSET = 0
+DISPLAY_Y_OFFSET = 80
+ROTATION = 180  # 0
+
 
 # Image frame
-ROTATION = 270  # 90
 FONT_TYPE = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 FONT_SIZE = 16
 
@@ -148,7 +156,7 @@ def initialize_image(disp):
 
 
 def main():
-    client = PiHole6Client(API_URL, API_TOKEN)
+    # client = PiHole6Client(API_URL, API_TOKEN)
 
     disp = initialize_display()
 
