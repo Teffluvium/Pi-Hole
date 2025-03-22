@@ -8,9 +8,7 @@ Support scripts and configurations for Pi-Hole
 sudo apt-get update
 sudo apt-get -y upgrade
 sudo apt-get install python3-pip
-sudo apt install --upgrade python3-setuptools
-
-sudo apt install python3-venv
+sudo apt install --upgrade python3-setuptools python3-venv
 
 
 ```
