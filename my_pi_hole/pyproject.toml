@@ -19,3 +19,13 @@ dev = [
     "flake8>=7.2.0",
     "isort>=6.0.1",
 ]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # Pyflakes
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "I",    # isort
+]
