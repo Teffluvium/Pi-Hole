@@ -15,14 +15,13 @@ from PIL import Image, ImageDraw, ImageFont
 API_URL = "http://localhost"
 API_TOKEN = r"mrukyqgwUoCMuSvDyacy5VS9/J0HQxgyHnhUUnB+32A="
 
-# Configuration for CS and DC pins (these are FeatherWing defaults on M0/M4):
-CS_PIN = digitalio.DigitalInOut(board.CE0)
-DC_PIN = digitalio.DigitalInOut(board.D25)
+# Identify hardware pins used on the display
+CS_PIN = board.CE0  # These are FeatherWing defaults on M0/M4
+DC_PIN = board.D25  # These are FeatherWing defaults on M0/M4
 RESET_PIN = None
-
-# Configuration for buttons A and B
-BUTTON_A_PIN = board.D23
-BUTTON_B_PIN = board.D24
+BACKLIGHT_PIN = board.D22  # Display backlight
+BUTTON_A_PIN = board.D23  # Button A
+BUTTON_B_PIN = board.D24  # Button B
 
 # Config for display baudrate (default max is 24mhz):
 BAUDRATE = 64_000_000
@@ -41,7 +40,10 @@ DISPLAY_X_OFFSET = 0
 DISPLAY_Y_OFFSET = 80
 ROTATION = 0  # 180
 
-# Image frame
+# Text font used in the display
+#   Alternatively load a TTF font.  Make sure the .ttf font file is
+#   in the same directory as the python script!
+#   Some other nice fonts to try: http://www.dafont.com/bitmap.php
 FONT_TYPE = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 FONT_SIZE = 16
 
@@ -53,8 +55,8 @@ def initialize_display() -> digitalio.DigitalInOut:
     # Create the ST7789 display:
     disp = st7789.ST7789(
         spi,
-        cs=CS_PIN,
-        dc=DC_PIN,
+        cs=digitalio.DigitalInOut(CS_PIN),
+        dc=digitalio.DigitalInOut(DC_PIN),
         rst=RESET_PIN,
         baudrate=BAUDRATE,
         width=DISPLAY_WIDTH,
@@ -66,6 +68,15 @@ def initialize_display() -> digitalio.DigitalInOut:
     return disp
 
 
+def initialize_backlight() -> digitalio.DigitalInOut:
+    # Turn on the backlight
+    backlight = digitalio.DigitalInOut(BACKLIGHT_PIN)
+    backlight.switch_to_output()
+    backlight.value = False
+
+    return backlight
+
+
 def initialize_buttons() -> tuple[digitalio.DigitalInOut, digitalio.DigitalInOut]:
     # Setup of buttons A and B
     buttonA = digitalio.DigitalInOut(BUTTON_A_PIN)
@@ -74,15 +85,6 @@ def initialize_buttons() -> tuple[digitalio.DigitalInOut, digitalio.DigitalInOut
     buttonB.switch_to_input()
 
     return buttonA, buttonB
-
-
-def initialize_backlight() -> digitalio.DigitalInOut:
-    # Turn on the backlight
-    backlight = digitalio.DigitalInOut(board.D22)
-    backlight.switch_to_output()
-    backlight.value = False
-
-    return backlight
 
 
 def c_to_f(temp: float) -> float:
@@ -195,7 +197,6 @@ def get_button_states(
     buttonA: digitalio.DigitalInOut, buttonB: digitalio.DigitalInOut
 ) -> ButtonState:
     # Return the state of the button presses:
-    #
     if buttonA.value and not buttonB.value:  # just button A pressed
         return ButtonState.ONLY_A
     if buttonB.value and not buttonA.value:  # just button B pressed
@@ -231,35 +232,33 @@ def main():
     # Move left to right keeping track of the current x position for drawing shapes.
     x = 0
 
-    # Alternatively load a TTF font.  Make sure the .ttf font file is in the
-    # same directory as the python script!
-    # Some other nice fonts to try: http://www.dafont.com/bitmap.php
+    # Initialize the font
     font = ImageFont.truetype(FONT_TYPE, FONT_SIZE)
 
     try:
         while True:
-            state = get_button_states(buttonA, buttonB)
-            stats_dict = {}
-            if state == ButtonState.ONLY_A:
-                print("Button A pressed")
-                backlight.value = True  # turn on backlight
-                stats_dict = get_system_stats()
-
-            if state == ButtonState.ONLY_B:
-                print("Button B pressed")
-                backlight.value = True  # turn on backlight
-                stats_dict = get_pihole_stats(client)
-
-            if state == ButtonState.BOTH:
-                print("Buttons A and B pressed")
-                backlight.value = False  # turn off backlight
-
-            if state == ButtonState.NONE:
-                # print("No buttons pressed")
-                backlight.value = False  # turn off backlight
-
-            # Draw a black filled box to clear the image.
+            # Turn off backlight and draw a black filled box to clear the image.
+            backlight.value = False  # turn off backlight
             draw.rectangle((0, 0, disp.width, disp.height), outline=0, fill=0)
+
+            stats_dict = {}
+            match get_button_states(buttonA, buttonB):
+                case ButtonState.ONLY_A:
+                    print("Button A pressed")
+                    backlight.value = True  # turn on backlight
+                    stats_dict = get_system_stats()
+
+                case ButtonState.ONLY_B:
+                    print("Button B pressed")
+                    backlight.value = True  # turn on backlight
+                    stats_dict = get_pihole_stats(client)
+
+                case ButtonState.BOTH:
+                    print("Buttons A and B pressed")
+
+                case ButtonState.NONE:
+                    # print("No buttons pressed")
+                    pass
 
             update_frame_text(draw, font, stats_dict, x, top)
 
@@ -274,9 +273,10 @@ def main():
         # Turn off the backlight when Ctrl-C is pressed
         backlight.value = False
 
-    except:
+    except Exception as e:
         # Turn off the backlight before exiting
         backlight.value = False
+        print(e)
 
 
 if __name__ == "__main__":
