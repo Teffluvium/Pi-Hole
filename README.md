@@ -31,7 +31,7 @@ sudo vim /etc/systemd/system/pihole-display.service
 
 Copy and paste the contents below and save the file.
 
-```
+```ini
 [Unit]
 Description=Display Pi-hole stats when buttons are pressed
 
