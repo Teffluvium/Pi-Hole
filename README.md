@@ -11,9 +11,14 @@ sudo apt -y upgrade
 
 ## Add Some Packages
 
-### Required Pyton Packages
+### Required Python Packages
 ```
 sudo apt install --upgrade python3-pip python3-venv python3-setuptools
+```
+
+### Install the `uv` Python Package Manager
+```
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ### Optional Packages
@@ -22,7 +27,9 @@ These packages are not strictly required, but nice-to-have.
 sudo apt install -y vim
 ```
 
-### Create a Systemctl Service for the Script
+### Run Your Script Automatically as a Systemctl Service
+
+#### Create a Systemctl Service for the Script
 
 Create a file named `pihole-display.service` in the directory `/etc/systemd/system/`.
 ```
@@ -61,6 +68,15 @@ ProtectSystem=full
 
 [Install]
 WantedBy=multi-user.target
+```
+
+#### Enable the New Systemctl Service
+
+Run the following commands to enable and start the `systemctl` service.  This will automatically run the script and let it continuously run in the background.
+
+```
+sudo systemctl enable mouselogger.service
+sudo systemctl start mouselogger.service
 ```
 
 ## References
