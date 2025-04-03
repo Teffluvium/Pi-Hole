@@ -7,6 +7,7 @@ requires-python = ">=3.11"
 dependencies = [
     "adafruit-blinka>=8.56.0",
     "adafruit-circuitpython-rgb-display>=3.13",
+    "dotenv>=0.9.9",
     "numpy>=2.2.4",
     "pihole6api>=0.1.7",
     "pillow>=11.1.0",

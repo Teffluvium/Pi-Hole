@@ -2,18 +2,22 @@
 # SPDX-License-Identifier: MIT
 
 import itertools
+import os
+import shutil
 import subprocess
 import time
 from enum import Enum, auto
+from pathlib import Path
 
 import board
 import digitalio
 from adafruit_rgb_display import st7789
+from dotenv import load_dotenv
 from pihole6api import PiHole6Client
 from PIL import Image, ImageDraw, ImageFont
 
 API_URL = "http://localhost"
-API_TOKEN = r"mrukyqgwUoCMuSvDyacy5VS9/J0HQxgyHnhUUnB+32A="
+# API_TOKEN = r"mrukyqgwUoCMuSvDyacy5VS9/J0HQxgyHnhUUnB+32A="
 
 # Identify hardware pins used on the display
 CS_PIN = board.CE0  # These are FeatherWing defaults on M0/M4
@@ -46,6 +50,20 @@ ROTATION = 0  # 180
 #   Some other nice fonts to try: http://www.dafont.com/bitmap.php
 FONT_TYPE = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 FONT_SIZE = 16
+
+def get_api_token() -> None:
+    env_template_file = Path("env_template")
+    env_file = Path(".env")
+    if not env_file.exists():
+        shutil.copy2(str(env_template_file), str(env_file))
+        print(f"A new environment file '{env_file.absolute()}' has been created")
+        print("Check the value of API_TOKEN and run the application again.")
+        exit()
+
+    load_dotenv()
+    API_TOKEN = os.getenv("API_TOKEN")
+
+    return API_TOKEN
 
 
 def initialize_display() -> digitalio.DigitalInOut:
@@ -208,6 +226,8 @@ def get_button_states(
 
 
 def main():
+    API_TOKEN = get_api_token()
+
     # Establish a connection to the PiHole API
     client = PiHole6Client(API_URL, API_TOKEN)
 
@@ -281,3 +301,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
