@@ -16,10 +16,7 @@ from dotenv import load_dotenv
 from pihole6api import PiHole6Client
 from PIL import Image, ImageDraw, ImageFont
 
-API_URL = "http://localhost"
-# API_TOKEN = r"mrukyqgwUoCMuSvDyacy5VS9/J0HQxgyHnhUUnB+32A="
-
-# Identify hardware pins used on the display
+# Identify GPIO pins used on the display
 CS_PIN = board.CE0  # These are FeatherWing defaults on M0/M4
 DC_PIN = board.D25  # These are FeatherWing defaults on M0/M4
 RESET_PIN = None
@@ -51,19 +48,31 @@ ROTATION = 0  # 180
 FONT_TYPE = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 FONT_SIZE = 16
 
-def get_api_token() -> None:
+
+def get_api_info_from_env() -> tuple[str, str]:
+    """Retrieve the API URL and Token from a local .env file.  If the
+    .env file cannot be located, a new file is created from env_template.
+    """
     env_template_file = Path("env_template")
     env_file = Path(".env")
     if not env_file.exists():
         shutil.copy2(str(env_template_file), str(env_file))
-        print(f"A new environment file '{env_file.absolute()}' has been created")
-        print("Check the value of API_TOKEN and run the application again.")
+        print(f"A new environment file '{env_file.absolute()}' has been created.")
+        print(
+            "Update PIHOLE_API_URL and PIHOLE_API_TOKEN "
+            "in the file and re-run the application."
+        )
         exit()
 
-    load_dotenv()
-    API_TOKEN = os.getenv("API_TOKEN")
+    load_dotenv(override=True)
+    PIHOLE_API_URL = os.getenv("PIHOLE_API_URL")
+    PIHOLE_API_TOKEN = os.getenv("PIHOLE_API_TOKEN")
 
-    return API_TOKEN
+    if not PIHOLE_API_URL or not PIHOLE_API_TOKEN:
+        print("The API_TOKEN could not be found in the environment variables.")
+        exit()
+
+    return PIHOLE_API_URL, PIHOLE_API_TOKEN
 
 
 def initialize_display() -> digitalio.DigitalInOut:
@@ -167,9 +176,13 @@ def update_frame_text(
     draw: ImageDraw,
     font: ImageFont.FreeTypeFont,
     stats: dict[str, str],
-    x: int,
-    top: int,
 ) -> None:
+    # First define some constants to allow easy resizing of shapes.
+    padding = -2
+    top = padding
+    # Move left to right keeping track of the current x position for drawing shapes.
+    x = 5
+
     # Determine the vertical text separation for this font
     text = "Temp Text"
     bbox = draw.textbbox((0, 0), text, font=font)
@@ -226,10 +239,9 @@ def get_button_states(
 
 
 def main():
-    API_TOKEN = get_api_token()
-
     # Establish a connection to the PiHole API
-    client = PiHole6Client(API_URL, API_TOKEN)
+    api_url, api_token = get_api_info_from_env()
+    client = PiHole6Client(api_url, api_token)
 
     # Initialize the hardware
     disp = initialize_display()
@@ -239,18 +251,6 @@ def main():
 
     # Get drawing object to draw on image.
     draw = ImageDraw.Draw(image)
-
-    # Draw a black filled box to clear the image.
-    draw.rectangle((0, 0, disp.width, disp.height), outline=0, fill=(0, 0, 0))
-    disp.image(image, ROTATION)
-
-    # Draw some shapes.
-    # First define some constants to allow easy resizing of shapes.
-    padding = -2
-    top = padding
-    # bottom = disp.height - padding
-    # Move left to right keeping track of the current x position for drawing shapes.
-    x = 0
 
     # Initialize the font
     font = ImageFont.truetype(FONT_TYPE, FONT_SIZE)
@@ -280,7 +280,7 @@ def main():
                     # print("No buttons pressed")
                     pass
 
-            update_frame_text(draw, font, stats_dict, x, top)
+            update_frame_text(draw, font, stats_dict)
 
             # Display image.
             disp.image(image, ROTATION)
@@ -301,4 +301,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

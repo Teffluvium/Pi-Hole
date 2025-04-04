@@ -1,1 +1,3 @@
-API_TOKEN="Your API Token here"
+PIHOLE_API_URL='http://localhost'
+PIHOLE_API_TOKEN='Your API Token here'
+

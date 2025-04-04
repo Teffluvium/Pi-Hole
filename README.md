@@ -54,6 +54,7 @@ StartLimitIntervalSec=120s
 
 [Service]
 User=herrin
+WorkingDirectory=/home/herrin/Projects/Pi-Hole
 
 ExecStart=/home/herrin/.local/bin/uv run --project /home/herrin/Projects/Pi-Hole /home/herrin/Projects/Pi-Hole/pihole_display.py
 Restart=on-failure
