@@ -4,6 +4,7 @@
 import itertools
 import os
 import shutil
+import socket
 import subprocess
 import time
 from enum import Enum, auto
@@ -11,6 +12,7 @@ from pathlib import Path
 
 import board
 import digitalio
+import psutil
 from adafruit_rgb_display import st7789
 from dotenv import load_dotenv
 from pihole6api import PiHole6Client
@@ -125,6 +127,72 @@ def c_to_f(temp: float) -> float:
     return (temp * 9 / 5) + 32
 
 
+def get_cpu_load() -> float:
+    # Getting load over 1, 5, and 15 minutes
+    load1, load5, load15 = psutil.getloadavg()
+
+    # cpu_usage = (load1/os.cpu_count()) * 100
+    # cpu_usage = (load5/os.cpu_count()) * 100
+    cpu_usage = (load15 / os.cpu_count()) * 100
+
+    print("The CPU usage is : ", cpu_usage)
+
+    return cpu_usage
+
+
+def get_host_name_IP() -> tuple[str, str]:
+    try:
+        host_name = socket.gethostname()
+        host_ip = socket.gethostbyname(host_name)
+        print("Hostname :  ", host_name)
+        print("IP : ", host_ip)
+    except:
+        print("Unable to get Hostname and IP")
+
+    return host_name, host_ip
+
+
+def to_mb(val: int) -> float:
+    return val / 1024 / 1024
+
+
+def get_memory_usage() -> str:
+    total = to_mb(psutil.virtual_memory()[0])
+    used = to_mb(psutil.virtual_memory()[1])
+    memory = psutil.virtual_memory()[2]
+
+    return f"{used:.0f}/{total:.0f} MB {memory:.2f} %"
+
+
+def get_temperature() -> float:
+    temps = psutil.sensors_temperatures()
+    # current_temp_list: list[float] = []
+    current_avg_temp: float = 0
+    current_max_temp: float = 0
+
+    if not temps:
+        print("Unable to read temperature")
+        exit()
+
+    for name, entries in temps.items():
+        print(name)
+        for entry in entries:
+            # current_temp_list.append(entry.current)
+            line = "    {:<20} {} °C (high = {} °C, critical = %{} °C)".format(
+                entry.label or name,
+                entry.current,
+                entry.high,
+                entry.critical,
+            )
+            print(line)
+        print()
+
+    # print(f"{current_temp_list = }")
+
+    # print(f"{temps = }")
+    # print(f"{current_temp}")
+
+
 def get_system_stats() -> dict[str, str]:
     # CLI commands to get system information
     cmd = {
@@ -156,6 +224,11 @@ def get_system_stats() -> dict[str, str]:
     if temp_str:
         # Convert the temperature to Fahrenheit
         stats["Temp"] = f"CPU Temp: {c_to_f(float(temp_str)):.1f} F"
+
+    get_cpu_load()
+    get_host_name_IP()
+    get_memory_usage()
+    get_temperature()
 
     return stats
 

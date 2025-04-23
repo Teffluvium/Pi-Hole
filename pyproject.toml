@@ -11,7 +11,9 @@ dependencies = [
     "numpy>=2.2.4",
     "pihole6api>=0.1.7",
     "pillow>=11.1.0",
+    "psutil>=7.0.0",
     "rpi-gpio>=0.7.1",
+    "sockets>=1.0.0",
 ]
 
 [dependency-groups]
@@ -30,3 +32,8 @@ select = [
     "SIM",  # flake8-simplify
     "I",    # isort
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
