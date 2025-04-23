@@ -21,8 +21,9 @@ CS_PIN = board.CE0  # These are FeatherWing defaults on M0/M4
 DC_PIN = board.D25  # These are FeatherWing defaults on M0/M4
 RESET_PIN = None
 BACKLIGHT_PIN = board.D22  # Display backlight
-BUTTON_A_PIN = board.D23  # Button A
-BUTTON_B_PIN = board.D24  # Button B
+# Swap D23 and D24 depending on how you want A and B oriented
+BUTTON_A_PIN = board.D24  # Button A
+BUTTON_B_PIN = board.D23  # Button B
 
 # Config for display baudrate (default max is 24mhz):
 BAUDRATE = 64_000_000
@@ -227,15 +228,19 @@ class ButtonState(Enum):
 def get_button_states(
     buttonA: digitalio.DigitalInOut, buttonB: digitalio.DigitalInOut
 ) -> ButtonState:
+    # Button values are True when not pressed
+    pressed_A = False if buttonA.value else True 
+    pressed_B = False if buttonB.value else True
+
     # Return the state of the button presses:
-    if buttonA.value and not buttonB.value:  # just button A pressed
+    if pressed_A and not pressed_B: # just button A pressed
         return ButtonState.ONLY_A
-    if buttonB.value and not buttonA.value:  # just button B pressed
+    if pressed_B and not pressed_A: # just button B pressed
         return ButtonState.ONLY_B
-    if buttonA.value or buttonB.value:  # no buttons pressed
-        return ButtonState.NONE
-    if not buttonA.value and not buttonB.value:
+    if pressed_A and pressed_B: # both buttons pressed
         return ButtonState.BOTH
+
+    return ButtonState.NONE
 
 
 def main():
