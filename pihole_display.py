@@ -18,7 +18,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 # Identify GPIO pins used on the display
 CS_PIN = board.CE0  # These are FeatherWing defaults on M0/M4
-DC_PIN = board.D25  # These are FeatherWing defaults on M0/M4
+DC_PIN = board.D25  # These are FeatherWing defaults on M0/M5
 RESET_PIN = None
 BACKLIGHT_PIN = board.D22  # Display backlight
 # Swap D23 and D24 depending on how you want A and B oriented
@@ -26,21 +26,21 @@ BUTTON_A_PIN = board.D24  # Button A
 BUTTON_B_PIN = board.D23  # Button B
 
 # Config for display baudrate (default max is 24mhz):
-BAUDRATE = 64_000_000
+BAUDRATE: int = 64_000_000
 
 # # Display geometry for 135x240 display
-# DISPLAY_WIDTH = 135
-# DISPLAY_HEIGHT = 240
-# DISPLAY_X_OFFSET = 53
-# DISPLAY_Y_OFFSET = 40
-# ROTATION = 270  # 90
+# DISPLAY_WIDTH: int = 135
+# DISPLAY_HEIGHT: int = 240
+# DISPLAY_X_OFFSET: int = 53
+# DISPLAY_Y_OFFSET: int = 40
+# ROTATION: int = 270  # 90
 
 # Display geometry for 240x240 display
-DISPLAY_WIDTH = 240
-DISPLAY_HEIGHT = 240
-DISPLAY_X_OFFSET = 0
-DISPLAY_Y_OFFSET = 80
-ROTATION = 0  # 180
+DISPLAY_WIDTH: int = 240
+DISPLAY_HEIGHT: int = 240
+DISPLAY_X_OFFSET: int = 0
+DISPLAY_Y_OFFSET: int = 80
+ROTATION: int = 0  # 180
 
 # Text font used in the display
 #   Alternatively load a TTF font.  Make sure the .ttf font file is
@@ -69,7 +69,12 @@ def get_api_info_from_env() -> tuple[str, str]:
     PIHOLE_API_URL = os.getenv("PIHOLE_API_URL")
     PIHOLE_API_TOKEN = os.getenv("PIHOLE_API_TOKEN")
 
-    if not PIHOLE_API_URL or not PIHOLE_API_TOKEN:
+    if (
+        not PIHOLE_API_URL
+        or not PIHOLE_API_TOKEN
+        or PIHOLE_API_URL.strip() == ""
+        or PIHOLE_API_TOKEN.strip() == ""
+    ):
         print("The API_TOKEN could not be found in the environment variables.")
         exit()
 
@@ -143,21 +148,25 @@ def get_system_stats() -> dict[str, str]:
     }
 
     # Add labels to some fields
-    stats["IP"] = f"IP: {stats.get('IP').strip()}"
-    stats["HOST"] = f"HOST: {stats.get('HOST').strip()}"
+    stats["IP"] = f"IP: {stats.get('IP', '').strip()}"
+    stats["HOST"] = f"HOST: {stats.get('HOST', '').strip()}"
 
     # Convert the temperature to Fahrenheit
-    stats["Temp"] = f"CPU Temp: {c_to_f(float(stats.get('Temp'))):.1f} F"
+    temp_str = stats.get("Temp", "").strip()
+    if temp_str:
+        # Convert the temperature to Fahrenheit
+        stats["Temp"] = f"CPU Temp: {c_to_f(float(temp_str)):.1f} F"
 
     return stats
 
 
 def get_pihole_stats(client: PiHole6Client) -> dict[str, str]:
     # Gather summary stats for the PiHole
-    stats_summary = client.metrics.get_stats_summary()
-    total_queries = stats_summary.get("queries").get("total")
-    blocked_queries = stats_summary.get("queries").get("blocked")
-    percent_queries = stats_summary.get("queries").get("percent_blocked")
+    stats_summary = client.metrics.get_stats_summary() or {}
+    queries = stats_summary.get("queries", {})
+    total_queries = queries.get("total", 0)
+    blocked_queries = queries.get("blocked", 0)
+    percent_queries = queries.get("percent_blocked", 0.0)
 
     # Get current list of clients served by PiHole
     client_dict = client.client_management.get_clients()
@@ -228,22 +237,38 @@ class ButtonState(Enum):
 def get_button_states(
     buttonA: digitalio.DigitalInOut, buttonB: digitalio.DigitalInOut
 ) -> ButtonState:
+    """Get the button press states for button A and button B.
+    The buttons are active low, so when pressed, the value is False.
+    The function returns the state of the buttons as an enum.
+
+    Args:
+        buttonA (digitalio.DigitalInOut): _description_
+        buttonB (digitalio.DigitalInOut): _description_
+
+    Returns:
+        ButtonState: Can be ONLY_A, ONLY_B, BOTH, or NONE
+    """
     # Button values are True when not pressed
-    pressed_A = False if buttonA.value else True 
-    pressed_B = False if buttonB.value else True
+    pressed_A = not buttonA.value
+    pressed_B = not buttonB.value
 
     # Return the state of the button presses:
-    if pressed_A and not pressed_B: # just button A pressed
+    if pressed_A and not pressed_B:  # just button A pressed
         return ButtonState.ONLY_A
-    if pressed_B and not pressed_A: # just button B pressed
+    if pressed_B and not pressed_A:  # just button B pressed
         return ButtonState.ONLY_B
-    if pressed_A and pressed_B: # both buttons pressed
+    if pressed_A and pressed_B:  # both buttons pressed
         return ButtonState.BOTH
 
     return ButtonState.NONE
 
 
 def main():
+    """
+    Main function to initialize hardware components, establish a connection to the PiHole API,
+    and handle button interactions to display system or PiHole statistics on the screen.
+    """
+
     # Establish a connection to the PiHole API
     api_url, api_token = get_api_info_from_env()
     client = PiHole6Client(api_url, api_token)
@@ -258,6 +283,12 @@ def main():
     draw = ImageDraw.Draw(image)
 
     # Initialize the font
+    try:
+        font = ImageFont.truetype(FONT_TYPE, FONT_SIZE)
+    except Exception as e:
+        print(f"Error loading font '{FONT_TYPE}': {e}")
+        print("Ensure the font file exists and is not corrupted.")
+        exit(1)
     font = ImageFont.truetype(FONT_TYPE, FONT_SIZE)
 
     try:
@@ -267,21 +298,27 @@ def main():
             draw.rectangle((0, 0, disp.width, disp.height), outline=0, fill=0)
 
             stats_dict = {}
+
+            # Match the current button states and perform corresponding actions
             match get_button_states(buttonA, buttonB):
                 case ButtonState.ONLY_A:
+                    # Button A is pressed: Display system statistics
                     print("Button A pressed")
                     backlight.value = True  # turn on backlight
                     stats_dict = get_system_stats()
 
                 case ButtonState.ONLY_B:
+                    # Button B is pressed: Display PiHole statistics
                     print("Button B pressed")
                     backlight.value = True  # turn on backlight
                     stats_dict = get_pihole_stats(client)
 
                 case ButtonState.BOTH:
+                    # Both buttons A and B are pressed: No specific action defined
                     print("Buttons A and B pressed")
 
                 case ButtonState.NONE:
+                    # No buttons are pressed: Do nothing
                     # print("No buttons pressed")
                     pass
 
@@ -292,16 +329,24 @@ def main():
             time.sleep(0.05)
 
     except KeyboardInterrupt:
-        print()
-        print(f"Exiting {__file__}")
-        print()
+        print(f"\nExiting {__file__}\n")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        print("Exiting the program due to an unexpected error.")
+        raise
+
+    finally:
         # Turn off the backlight when Ctrl-C is pressed
         backlight.value = False
 
-    except Exception as e:
-        # Turn off the backlight before exiting
-        backlight.value = False
-        print(e)
+        # Clean up GPIO pins
+        buttonA.deinit()
+        buttonB.deinit()
+        backlight.deinit()
+
+        # Reset the display object
+        disp.fill(0)  # Clear the display
 
 
 if __name__ == "__main__":
