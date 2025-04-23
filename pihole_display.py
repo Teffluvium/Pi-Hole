@@ -6,6 +6,7 @@ import os
 import shutil
 import socket
 import subprocess
+import sys
 import time
 from enum import Enum, auto
 from pathlib import Path
@@ -153,7 +154,11 @@ def get_host_name_IP() -> tuple[str, str]:
 
 
 def to_mb(val: int) -> float:
-    return val / 1024 / 1024
+    return val / 2**20
+
+
+def to_gb(val: int) -> float:
+    return val / 2**30
 
 
 def get_memory_usage() -> str:
@@ -164,33 +169,53 @@ def get_memory_usage() -> str:
     return f"{used:.0f}/{total:.0f} MB {memory:.2f} %"
 
 
+def get_disk_usage() -> str:
+    current_path = os.path.abspath(os.path.dirname(__file__))
+    usage = psutil.disk_usage(current_path)
+
+    total = to_gb(usage[0])
+    used = to_gb(usage[1])
+    disk = usage[3]
+
+    print(f"Disk Usage: {used:.0f}/{total:.0f} GB {disk:.2f} %")
+
+    return f"{used:.0f}/{total:.0f} GB {disk:.2f} %"
+
+
 def get_temperature() -> float:
+    """Calculate the average temperature of all sensors using psutil.sensors_temperatures().
+
+    Returns:
+        float: The average temperature of all sensors in Farenheit.
+    """
+    if not hasattr(psutil, "sensors_temperatures"):
+        sys.exit("Platform not supported")
+
+    # Get the temperature sensors
     temps = psutil.sensors_temperatures()
-    # current_temp_list: list[float] = []
-    current_avg_temp: float = 0
-    current_max_temp: float = 0
 
     if not temps:
-        print("Unable to read temperature")
-        exit()
+        sys.exit("Unable to read temperature")
 
-    for name, entries in temps.items():
-        print(name)
-        for entry in entries:
-            # current_temp_list.append(entry.current)
-            line = "    {:<20} {} °C (high = {} °C, critical = %{} °C)".format(
-                entry.label or name,
-                entry.current,
-                entry.high,
-                entry.critical,
-            )
-            print(line)
-        print()
+    # Calculate the average temperature
+    total_temp = 0.0
+    count = 0
+    for sensor in temps.values():
+        for entry in sensor:
+            total_temp += entry.current
+            count += 1
 
-    # print(f"{current_temp_list = }")
+    if count == 0:
+        return 0.0
 
-    # print(f"{temps = }")
-    # print(f"{current_temp}")
+    avg_temp = total_temp / count
+
+    # Convert to Fahrenheit
+    avg_temp_f = c_to_f(avg_temp)
+
+    print(f"Average Temperature: {avg_temp_f:.2f} F")
+
+    return avg_temp_f
 
 
 def get_system_stats() -> dict[str, str]:
@@ -228,6 +253,7 @@ def get_system_stats() -> dict[str, str]:
     get_cpu_load()
     get_host_name_IP()
     get_memory_usage()
+    get_disk_usage()
     get_temperature()
 
     return stats
