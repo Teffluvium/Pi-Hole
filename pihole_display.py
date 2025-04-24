@@ -52,6 +52,15 @@ ROTATION: int = 0  # 180
 FONT_TYPE = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 FONT_SIZE = 16
 
+COLOR_LIST = [
+    "#FFFFFF",  # White
+    "#FFFF00",  # Yellow
+    "#00FF00",  # Green
+    "#00FFFF",  # Cyan
+    "#FF00FF",  # Magenta
+    # "#0000FF",  # Blue (a bit too dark on black background)
+]
+
 
 def get_api_info_from_env() -> tuple[str, str]:
     """Retrieve the API URL and Token from a local .env file.  If the
@@ -308,6 +317,7 @@ def update_frame_text(
     draw: ImageDraw,
     font: ImageFont.FreeTypeFont,
     stats: dict[str, str],
+    color_list: list[str] = COLOR_LIST,
 ) -> None:
     """Update the display with the given statistics.
     This function draws the statistics on the display using the
@@ -317,6 +327,7 @@ def update_frame_text(
         draw (ImageDraw): ImageDraw object to draw on the display.
         font (ImageFont): Font to use for drawing text.
         stats (dict): Dictionary containing statistics to display.
+        color_list (list): List of colors to use for drawing text.
     """
     # First define some constants to allow easy resizing of shapes.
     padding = -2
@@ -331,14 +342,7 @@ def update_frame_text(
     y_offset = bbox[3] - bbox[1]
     y_offset += 7
 
-    color_list = [
-        "#FFFFFF",  # White
-        "#FFFF00",  # Yellow
-        "#00FF00",  # Green
-        "#00FFFF",  # Cyan
-        "#FF00FF",  # Magenta
-        # "#0000FF",  # Blue (a bit too dark on black background)
-    ]
+    # Set the color cycle for the text
     color_cycle = itertools.cycle(color_list)
 
     # Write four lines of text.
@@ -464,7 +468,7 @@ def main():
                     # print("No buttons pressed")
                     pass
 
-            update_frame_text(draw, font, stats_dict)
+            update_frame_text(draw, font, stats_dict, COLOR_LIST)
 
             # Display image.
             disp.image(image, ROTATION)
