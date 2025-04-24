@@ -136,21 +136,28 @@ def get_cpu_load() -> float:
     # cpu_usage = (load5/os.cpu_count()) * 100
     cpu_usage = (load15 / os.cpu_count()) * 100
 
-    print("The CPU usage is : ", cpu_usage)
-
-    return cpu_usage
+    return f"CPU Load: {cpu_usage:.2f} %"
 
 
-def get_host_name_IP() -> tuple[str, str]:
+def get_host_name() -> str:
+    try:
+        host_name = socket.gethostname()
+    except:
+        host_name = "Unknown"
+        print("Unable to get Hostname")
+
+    return f"HOST: {host_name}"
+
+
+def get_host_ip() -> str:
     try:
         host_name = socket.gethostname()
         host_ip = socket.gethostbyname(host_name)
-        print("Hostname :  ", host_name)
-        print("IP : ", host_ip)
     except:
-        print("Unable to get Hostname and IP")
+        host_ip = "Unknown"
+        print("Unable to get Host IP")
 
-    return host_name, host_ip
+    return f"IP: {host_ip}"
 
 
 def to_mb(val: int) -> float:
@@ -166,7 +173,7 @@ def get_memory_usage() -> str:
     used = to_mb(psutil.virtual_memory()[1])
     memory = psutil.virtual_memory()[2]
 
-    return f"{used:.0f}/{total:.0f} MB {memory:.2f} %"
+    return f"Mem: {used:.0f}/{total:.0f} MB {memory:.2f} %"
 
 
 def get_disk_usage() -> str:
@@ -177,9 +184,7 @@ def get_disk_usage() -> str:
     used = to_gb(usage[1])
     disk = usage[3]
 
-    print(f"Disk Usage: {used:.0f}/{total:.0f} GB {disk:.2f} %")
-
-    return f"{used:.0f}/{total:.0f} GB {disk:.2f} %"
+    return f"Disk: {used:.0f}/{total:.0f} GB {disk:.2f} %"
 
 
 def get_temperature() -> float:
@@ -213,48 +218,17 @@ def get_temperature() -> float:
     # Convert to Fahrenheit
     avg_temp_f = c_to_f(avg_temp)
 
-    print(f"Average Temperature: {avg_temp_f:.2f} F")
-
-    return avg_temp_f
+    return f"Temp: {avg_temp_f:.2f} F"
 
 
 def get_system_stats() -> dict[str, str]:
-    # CLI commands to get system information
-    cmd = {
-        "IP": "hostname -I | cut -d' ' -f1",
-        "HOST": "hostname | tr -d '\\n'",
-        "CPU": "top -bn1 | grep load | awk '{printf \"CPU Load: %.2f\", $(NF-2)}'",
-        "MemUsage": [
-            "free -m | awk 'NR==2{printf \"Mem: %s/%s MB  %.2f%%\", $3,$2,$3*100/$2 }'",
-        ],
-        "Disk": 'df -h | awk \'$NF=="/"{printf "Disk: %d/%d GB  %s", $3,$2,$5}\'',
-        "Temp": [
-            "cat /sys/class/thermal/thermal_zone0/temp | "
-            "awk '{printf \"%.5f\", $(NF-0) / 1000}'",
-        ],
-    }
-
-    # Gather the system information
     stats = {
-        k: subprocess.check_output(v, shell=True).decode("utf-8")
-        for k, v in cmd.items()
+        "IP": get_host_ip(),
+        "HOST": get_host_name(),
+        "CPU": get_cpu_load(),
+        "Disk": get_disk_usage(),
+        "CPU Temp": get_temperature()
     }
-
-    # Add labels to some fields
-    stats["IP"] = f"IP: {stats.get('IP', '').strip()}"
-    stats["HOST"] = f"HOST: {stats.get('HOST', '').strip()}"
-
-    # Convert the temperature to Fahrenheit
-    temp_str = stats.get("Temp", "").strip()
-    if temp_str:
-        # Convert the temperature to Fahrenheit
-        stats["Temp"] = f"CPU Temp: {c_to_f(float(temp_str)):.1f} F"
-
-    get_cpu_load()
-    get_host_name_IP()
-    get_memory_usage()
-    get_disk_usage()
-    get_temperature()
 
     return stats
 
