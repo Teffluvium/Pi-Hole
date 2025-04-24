@@ -5,6 +5,7 @@ import itertools
 import os
 import shutil
 import socket
+import subprocess
 import sys
 import time
 from enum import Enum, auto
@@ -169,7 +170,11 @@ def get_host_ip() -> str:
     """
     try:
         host_name = socket.gethostname()
-        host_ip = socket.gethostbyname(host_name)
+        # Using a system call to "hostname -I" instead of socket.gethostbyname(host_name)
+        # because it return localhost (127.0.0.1) instead of network IP address
+        host_ip = (
+            subprocess.check_output(["hostname", "-I"]).decode().strip().split()[0]
+        )
     except Exception as e:
         host_ip = "Unknown"
         print(f"Unable to get Host IP. Error: {e}")
