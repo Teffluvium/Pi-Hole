@@ -5,7 +5,6 @@ import itertools
 import os
 import shutil
 import socket
-import subprocess
 import sys
 import time
 from enum import Enum, auto
@@ -128,7 +127,7 @@ def c_to_f(temp: float) -> float:
     return (temp * 9 / 5) + 32
 
 
-def get_cpu_load() -> float:
+def get_cpu_load() -> str:
     # Getting load over 1, 5, and 15 minutes
     load1, load5, load15 = psutil.getloadavg()
 
@@ -136,26 +135,44 @@ def get_cpu_load() -> float:
     # cpu_usage = (load5/os.cpu_count()) * 100
     cpu_usage = (load15 / os.cpu_count()) * 100
 
-    return f"CPU Load: {cpu_usage:.2f} %"
+    return f"CPU Usage: {cpu_usage:.2f} %"
 
 
 def get_host_name() -> str:
+    """Get the hostname of the system.
+    This function uses the socket library to retrieve the hostname
+    of the system.
+
+    If the hostname cannot be retrieved, it is set to "Unknown".
+
+    Returns:
+        str: Formatted string with the hostname or "Unknown".
+    """
     try:
         host_name = socket.gethostname()
-    except:
+    except Exception as e:
         host_name = "Unknown"
-        print("Unable to get Hostname")
+        print(f"Unable to get Hostname. Error: {e}")
 
     return f"HOST: {host_name}"
 
 
 def get_host_ip() -> str:
+    """Get the IP address of the system.
+    This function uses the socket library to retrieve the IP address
+    of the system.
+
+    If the IP address cannot be retrieved, it is set to "Unknown".
+
+    Returns:
+        str: Formatted string with the IP address or "Unknown".
+    """
     try:
         host_name = socket.gethostname()
         host_ip = socket.gethostbyname(host_name)
-    except:
+    except Exception as e:
         host_ip = "Unknown"
-        print("Unable to get Host IP")
+        print(f"Unable to get Host IP. Error: {e}")
 
     return f"IP: {host_ip}"
 
@@ -169,6 +186,13 @@ def to_gb(val: int) -> float:
 
 
 def get_memory_usage() -> str:
+    """Get the memory usage of the system.
+    This function uses the psutil library to retrieve the memory
+    usage of the system.
+    Returns:
+        str: Formatted string with the memory usage.
+    """
+
     total = to_mb(psutil.virtual_memory()[0])
     used = to_mb(psutil.virtual_memory()[1])
     memory = psutil.virtual_memory()[2]
@@ -177,6 +201,13 @@ def get_memory_usage() -> str:
 
 
 def get_disk_usage() -> str:
+    """Get the disk usage of the system.
+    This function uses the psutil library to retrieve the disk
+    usage of the system.
+
+    Returns:
+        str: Formatted string with the disk usage.
+    """
     current_path = os.path.abspath(os.path.dirname(__file__))
     usage = psutil.disk_usage(current_path)
 
@@ -187,8 +218,8 @@ def get_disk_usage() -> str:
     return f"Disk: {used:.0f}/{total:.0f} GB {disk:.2f} %"
 
 
-def get_temperature() -> float:
-    """Calculate the average temperature of all sensors using psutil.sensors_temperatures().
+def get_temperature() -> str:
+    """Calculate the average temperature of all sensors using psutil package.
 
     Returns:
         float: The average temperature of all sensors in Farenheit.
@@ -210,10 +241,7 @@ def get_temperature() -> float:
             total_temp += entry.current
             count += 1
 
-    if count == 0:
-        return 0.0
-
-    avg_temp = total_temp / count
+    avg_temp = 0.0 if count == 0 else total_temp / count
 
     # Convert to Fahrenheit
     avg_temp_f = c_to_f(avg_temp)
@@ -222,18 +250,34 @@ def get_temperature() -> float:
 
 
 def get_system_stats() -> dict[str, str]:
+    """Gather system statistics including CPU load, memory usage,
+    disk usage, and temperature.
+
+    Returns:
+        dict: Dictionary containing system statistics.
+    """
     stats = {
         "IP": get_host_ip(),
         "HOST": get_host_name(),
         "CPU": get_cpu_load(),
         "Disk": get_disk_usage(),
-        "CPU Temp": get_temperature()
+        "CPU Temp": get_temperature(),
     }
 
     return stats
 
 
 def get_pihole_stats(client: PiHole6Client) -> dict[str, str]:
+    """Gather PiHole statistics including client count, total queries,
+    blocked queries, and percentage of blocked queries.
+
+    Args:
+        client (PiHole6Client): PiHole6Client object to interact with
+            the PiHole API.
+
+    Returns:
+        dict: Dictionary containing PiHole statistics.
+    """
     # Gather summary stats for the PiHole
     stats_summary = client.metrics.get_stats_summary() or {}
     queries = stats_summary.get("queries", {})
@@ -260,6 +304,15 @@ def update_frame_text(
     font: ImageFont.FreeTypeFont,
     stats: dict[str, str],
 ) -> None:
+    """Update the display with the given statistics.
+    This function draws the statistics on the display using the
+    provided ImageDraw object and font.
+
+    Args:
+        draw (ImageDraw): ImageDraw object to draw on the display.
+        font (ImageFont): Font to use for drawing text.
+        stats (dict): Dictionary containing statistics to display.
+    """
     # First define some constants to allow easy resizing of shapes.
     padding = -2
     top = padding
@@ -291,6 +344,16 @@ def update_frame_text(
 
 
 def initialize_image(disp: st7789.ST7789) -> Image.Image:
+    """Initialize the image for the display.
+    This function creates a blank image with the same dimensions as the display
+    and sets the mode to 'RGB' for full color.
+
+    Args:
+        disp (st7789.ST7789): The display object to get the dimensions from.
+
+    Returns:
+        Image.Image: A blank image with the same dimensions as the display.
+    """
     # Create blank image for drawing.
     # Make sure to create image with mode 'RGB' for full color.
     height = disp.width  # we swap height/width to rotate it to landscape!
@@ -338,8 +401,9 @@ def get_button_states(
 
 def main():
     """
-    Main function to initialize hardware components, establish a connection to the PiHole API,
-    and handle button interactions to display system or PiHole statistics on the screen.
+    Main function to initialize hardware components, establish a connection
+    to the PiHole API, and handle button interactions to display system or
+    PiHole statistics on the screen.
     """
 
     # Establish a connection to the PiHole API
