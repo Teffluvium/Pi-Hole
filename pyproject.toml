@@ -12,6 +12,8 @@ dependencies = [
     "pihole6api>=0.1.7",
     "pillow>=11.1.0",
     "rpi-gpio>=0.7.1",
+    "types-pillow>=10.2.0.20240822",
+    "types-psutil>=7.0.0.20250401",
 ]
 
 [dependency-groups]
