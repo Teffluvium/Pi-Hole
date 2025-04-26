@@ -25,6 +25,9 @@ dev = [
     "isort>=6.0.1",
 ]
 
+[tool.ruff]
+line-length = 120
+
 [tool.ruff.lint]
 select = [
     "E",    # pycodestyle
@@ -45,3 +48,4 @@ disable_error_code = [
     "import-not-found",
     "import-untyped",
 ]
+

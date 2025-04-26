@@ -178,7 +178,6 @@ def get_host_ip() -> str:
         str: Formatted string with the IP address or "Unknown".
     """
     try:
-        host_name = socket.gethostname()
         # Using a system call to "hostname -I" instead of socket.gethostbyname(host_name)
         # because it return localhost (127.0.0.1) instead of network IP address
         host_ip = (
