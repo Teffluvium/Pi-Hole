@@ -4,13 +4,16 @@
 import itertools
 import os
 import shutil
+import socket
 import subprocess
+import sys
 import time
 from enum import Enum, auto
 from pathlib import Path
 
 import board
 import digitalio
+import psutil
 from adafruit_rgb_display import st7789
 from dotenv import load_dotenv
 from pihole6api import PiHole6Client
@@ -48,6 +51,15 @@ ROTATION: int = 0  # 180
 #   Some other nice fonts to try: http://www.dafont.com/bitmap.php
 FONT_TYPE = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 FONT_SIZE = 16
+
+COLOR_LIST = [
+    "#FFFFFF",  # White
+    "#FFFF00",  # Yellow
+    "#00FF00",  # Green
+    "#00FFFF",  # Cyan
+    "#FF00FF",  # Magenta
+    # "#0000FF",  # Blue (a bit too dark on black background)
+]
 
 
 def get_api_info_from_env() -> tuple[str, str]:
@@ -125,42 +137,161 @@ def c_to_f(temp: float) -> float:
     return (temp * 9 / 5) + 32
 
 
+def get_cpu_load() -> str:
+    # Getting load over 1, 5, and 15 minutes
+    load1, load5, load15 = psutil.getloadavg()
+
+    # cpu_usage = (load1/os.cpu_count()) * 100
+    # cpu_usage = (load5/os.cpu_count()) * 100
+    cpu_usage = (load15 / os.cpu_count()) * 100
+
+    return f"CPU Usage: {cpu_usage:.2f} %"
+
+
+def get_host_name() -> str:
+    """Get the hostname of the system.
+    This function uses the socket library to retrieve the hostname
+    of the system.
+
+    If the hostname cannot be retrieved, it is set to "Unknown".
+
+    Returns:
+        str: Formatted string with the hostname or "Unknown".
+    """
+    try:
+        host_name = socket.gethostname()
+    except Exception as e:
+        host_name = "Unknown"
+        print(f"Unable to get Hostname. Error: {e}")
+
+    return f"HOST: {host_name}"
+
+
+def get_host_ip() -> str:
+    """Get the IP address of the system.
+    This function uses the socket library to retrieve the IP address
+    of the system.
+
+    If the IP address cannot be retrieved, it is set to "Unknown".
+
+    Returns:
+        str: Formatted string with the IP address or "Unknown".
+    """
+    try:
+        host_name = socket.gethostname()
+        # Using a system call to "hostname -I" instead of socket.gethostbyname(host_name)
+        # because it return localhost (127.0.0.1) instead of network IP address
+        host_ip = (
+            subprocess.check_output(["hostname", "-I"]).decode().strip().split()[0]
+        )
+    except Exception as e:
+        host_ip = "Unknown"
+        print(f"Unable to get Host IP. Error: {e}")
+
+    return f"IP: {host_ip}"
+
+
+def to_mb(val: int) -> float:
+    return val / 2**20
+
+
+def to_gb(val: int) -> float:
+    return val / 2**30
+
+
+def get_memory_usage() -> str:
+    """Get the memory usage of the system.
+    This function uses the psutil library to retrieve the memory
+    usage of the system.
+    Returns:
+        str: Formatted string with the memory usage.
+    """
+
+    total = to_mb(psutil.virtual_memory()[0])
+    used = to_mb(psutil.virtual_memory()[1])
+    memory = psutil.virtual_memory()[2]
+
+    return f"Mem: {used:.0f}/{total:.0f} MB {memory:.2f} %"
+
+
+def get_disk_usage() -> str:
+    """Get the disk usage of the system.
+    This function uses the psutil library to retrieve the disk
+    usage of the system.
+
+    Returns:
+        str: Formatted string with the disk usage.
+    """
+    current_path = os.path.abspath(os.path.dirname(__file__))
+    usage = psutil.disk_usage(current_path)
+
+    total = to_gb(usage[0])
+    used = to_gb(usage[1])
+    disk = usage[3]
+
+    return f"Disk: {used:.0f}/{total:.0f} GB {disk:.2f} %"
+
+
+def get_temperature() -> str:
+    """Calculate the average temperature of all sensors using psutil package.
+
+    Returns:
+        float: The average temperature of all sensors in Farenheit.
+    """
+    if not hasattr(psutil, "sensors_temperatures"):
+        sys.exit("Platform not supported")
+
+    # Get the temperature sensors
+    temps = psutil.sensors_temperatures()
+
+    if not temps:
+        sys.exit("Unable to read temperature")
+
+    # Calculate the average temperature
+    total_temp = 0.0
+    count = 0
+    for sensor in temps.values():
+        for entry in sensor:
+            total_temp += entry.current
+            count += 1
+
+    avg_temp = 0.0 if count == 0 else total_temp / count
+
+    # Convert to Fahrenheit
+    avg_temp_f = c_to_f(avg_temp)
+
+    return f"Temp: {avg_temp_f:.2f} F"
+
+
 def get_system_stats() -> dict[str, str]:
-    # CLI commands to get system information
-    cmd = {
-        "IP": "hostname -I | cut -d' ' -f1",
-        "HOST": "hostname | tr -d '\\n'",
-        "CPU": "top -bn1 | grep load | awk '{printf \"CPU Load: %.2f\", $(NF-2)}'",
-        "MemUsage": [
-            "free -m | awk 'NR==2{printf \"Mem: %s/%s MB  %.2f%%\", $3,$2,$3*100/$2 }'",
-        ],
-        "Disk": 'df -h | awk \'$NF=="/"{printf "Disk: %d/%d GB  %s", $3,$2,$5}\'',
-        "Temp": [
-            "cat /sys/class/thermal/thermal_zone0/temp | "
-            "awk '{printf \"%.5f\", $(NF-0) / 1000}'",
-        ],
-    }
+    """Gather system statistics including CPU load, memory usage,
+    disk usage, and temperature.
 
-    # Gather the system information
+    Returns:
+        dict: Dictionary containing system statistics.
+    """
     stats = {
-        k: subprocess.check_output(v, shell=True).decode("utf-8")
-        for k, v in cmd.items()
+        "IP": get_host_ip(),
+        "HOST": get_host_name(),
+        "CPU": get_cpu_load(),
+        "Disk": get_disk_usage(),
+        "CPU Temp": get_temperature(),
     }
-
-    # Add labels to some fields
-    stats["IP"] = f"IP: {stats.get('IP', '').strip()}"
-    stats["HOST"] = f"HOST: {stats.get('HOST', '').strip()}"
-
-    # Convert the temperature to Fahrenheit
-    temp_str = stats.get("Temp", "").strip()
-    if temp_str:
-        # Convert the temperature to Fahrenheit
-        stats["Temp"] = f"CPU Temp: {c_to_f(float(temp_str)):.1f} F"
 
     return stats
 
 
 def get_pihole_stats(client: PiHole6Client) -> dict[str, str]:
+    """Gather PiHole statistics including client count, total queries,
+    blocked queries, and percentage of blocked queries.
+
+    Args:
+        client (PiHole6Client): PiHole6Client object to interact with
+            the PiHole API.
+
+    Returns:
+        dict: Dictionary containing PiHole statistics.
+    """
     # Gather summary stats for the PiHole
     stats_summary = client.metrics.get_stats_summary() or {}
     queries = stats_summary.get("queries", {})
@@ -186,7 +317,18 @@ def update_frame_text(
     draw: ImageDraw,
     font: ImageFont.FreeTypeFont,
     stats: dict[str, str],
+    color_list: list[str] = COLOR_LIST,
 ) -> None:
+    """Update the display with the given statistics.
+    This function draws the statistics on the display using the
+    provided ImageDraw object and font.
+
+    Args:
+        draw (ImageDraw): ImageDraw object to draw on the display.
+        font (ImageFont): Font to use for drawing text.
+        stats (dict): Dictionary containing statistics to display.
+        color_list (list): List of colors to use for drawing text.
+    """
     # First define some constants to allow easy resizing of shapes.
     padding = -2
     top = padding
@@ -200,14 +342,7 @@ def update_frame_text(
     y_offset = bbox[3] - bbox[1]
     y_offset += 7
 
-    color_list = [
-        "#FFFFFF",  # White
-        "#FFFF00",  # Yellow
-        "#00FF00",  # Green
-        "#00FFFF",  # Cyan
-        "#FF00FF",  # Magenta
-        # "#0000FF",  # Blue (a bit too dark on black background)
-    ]
+    # Set the color cycle for the text
     color_cycle = itertools.cycle(color_list)
 
     # Write four lines of text.
@@ -218,6 +353,16 @@ def update_frame_text(
 
 
 def initialize_image(disp: st7789.ST7789) -> Image.Image:
+    """Initialize the image for the display.
+    This function creates a blank image with the same dimensions as the display
+    and sets the mode to 'RGB' for full color.
+
+    Args:
+        disp (st7789.ST7789): The display object to get the dimensions from.
+
+    Returns:
+        Image.Image: A blank image with the same dimensions as the display.
+    """
     # Create blank image for drawing.
     # Make sure to create image with mode 'RGB' for full color.
     height = disp.width  # we swap height/width to rotate it to landscape!
@@ -265,8 +410,9 @@ def get_button_states(
 
 def main():
     """
-    Main function to initialize hardware components, establish a connection to the PiHole API,
-    and handle button interactions to display system or PiHole statistics on the screen.
+    Main function to initialize hardware components, establish a connection
+    to the PiHole API, and handle button interactions to display system or
+    PiHole statistics on the screen.
     """
 
     # Establish a connection to the PiHole API
@@ -322,7 +468,7 @@ def main():
                     # print("No buttons pressed")
                     pass
 
-            update_frame_text(draw, font, stats_dict)
+            update_frame_text(draw, font, stats_dict, COLOR_LIST)
 
             # Display image.
             disp.image(image, ROTATION)
