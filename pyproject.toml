@@ -39,3 +39,9 @@ select = [
 testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
+
+[tool.mypy]
+disable_error_code = [
+    "import-not-found",
+    "import-untyped",
+]
